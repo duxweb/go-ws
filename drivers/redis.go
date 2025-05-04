@@ -68,7 +68,7 @@ func NewRedisDriver(opts *RedisOptions) (*RedisDriver, error) {
 	}
 
 	if err := client.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("Redis: %w", err)
+		return nil, fmt.Errorf("redis: %w", err)
 	}
 
 	publisher, err := redisstream.NewPublisher(
@@ -80,7 +80,7 @@ func NewRedisDriver(opts *RedisOptions) (*RedisDriver, error) {
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("Redis: %w", err)
+		return nil, fmt.Errorf("redis: %w", err)
 	}
 
 	subscriber, err := redisstream.NewSubscriber(
@@ -92,7 +92,7 @@ func NewRedisDriver(opts *RedisOptions) (*RedisDriver, error) {
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("Redis: %w", err)
+		return nil, fmt.Errorf("redis: %w", err)
 	}
 
 	prefix := "ws:"
