@@ -11,9 +11,6 @@ import (
 )
 
 func main() {
-	// 初始化WebSocket服务
-	service := websocket.New(drivers.NewMemorySubscribeDriver())
-	service.Run()
 
 	// 创建一个Provider
 	provider := &websocket.Provider{
@@ -41,7 +38,7 @@ func main() {
 				// 使用客户端ID作为用户名（因为前面已设置token为用户名）
 				userName := client.ClientID
 
-				client.Send(&websocket.Message{
+				client.Service.SendLocalClient(client.ClientID, &websocket.Message{
 					Type:    "system",
 					Message: fmt.Sprintf("欢迎 %s，连接成功!", userName),
 					ID:      fmt.Sprintf("%d", time.Now().UnixMilli()), // 添加时间戳ID
@@ -88,8 +85,22 @@ func main() {
 		},
 	}
 
-	// 注册Provider
-	service.RegisterProvider("app1", provider)
+	//memoryDriver := drivers.NewMemoryDriver()
+
+	redisDriver, err := drivers.NewRedisDriver(&drivers.RedisOptions{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// 初始化WebSocket服务
+	service := websocket.New(redisDriver, provider)
+
+	service.Run()
 
 	// 设置HTTP服务器
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -327,6 +338,6 @@ func main() {
 	})
 
 	// 启动HTTP服务器
-	fmt.Println("WebSocket服务器运行在 http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	fmt.Println("WebSocket服务器运行在 http://localhost:8081")
+	log.Fatal(http.ListenAndServe(":8081", nil))
 }
