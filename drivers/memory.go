@@ -29,6 +29,10 @@ type MemoryDriver struct {
 	// 客户端-频道映射
 	// Client-topic mapping
 	clientTopics sync.Map
+
+	// 锁
+	// Lock
+	lock sync.Mutex
 }
 
 func NewMemoryDriver() *MemoryDriver {
@@ -42,9 +46,15 @@ func NewMemoryDriver() *MemoryDriver {
 }
 
 func (d *MemoryDriver) Subscribe(topic string, callback func(msg *websocket.Message) error) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	_, ok := d.topics.Load(topic)
+	if ok {
+		return nil
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-
 	message, err := d.pubSub.Subscribe(ctx, topic)
 	if err != nil {
 		cancel()
@@ -57,6 +67,9 @@ func (d *MemoryDriver) Subscribe(topic string, callback func(msg *websocket.Mess
 }
 
 func (d *MemoryDriver) Unsubscribe(topic string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	topicCtx, ok := d.topics.Load(topic)
 	if !ok {
 		return nil
@@ -71,6 +84,9 @@ func (d *MemoryDriver) Unsubscribe(topic string) error {
 }
 
 func (d *MemoryDriver) Publish(msg *websocket.Message) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	payloadData := map[string]any{
 		"message": msg.Message,
 		"data":    msg.Data,
@@ -126,6 +142,9 @@ func (d *MemoryDriver) CreateTopic(topicID string) error {
 // AddClientToTopic 将客户端添加到频道
 // AddClientToTopic adds a client to a topic
 func (d *MemoryDriver) AddClientToTopic(topicID string, clientID string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	var clients []string
 	if data, ok := d.topicClients.Load(topicID); ok {
 		clients = data.([]string)
@@ -156,6 +175,9 @@ func (d *MemoryDriver) AddClientToTopic(topicID string, clientID string) error {
 // RemoveClientFromTopic 从频道中移除客户端
 // RemoveClientFromTopic removes a client from a topic
 func (d *MemoryDriver) RemoveClientFromTopic(topicID string, clientID string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	if data, ok := d.topicClients.Load(topicID); ok {
 		clients := data.([]string)
 		newClients := make([]string, 0, len(clients))
@@ -192,6 +214,9 @@ func (d *MemoryDriver) RemoveClientFromTopic(topicID string, clientID string) er
 // IsTopicClient 检查客户端是否订阅主题
 // IsTopicClient checks if a client is subscribed to a topic
 func (d *MemoryDriver) IsTopicClient(topicID string, clientID string) (bool, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	data, ok := d.topicClients.Load(topicID)
 	if !ok {
 		return false, nil
@@ -210,6 +235,9 @@ func (d *MemoryDriver) IsTopicClient(topicID string, clientID string) (bool, err
 // GetTopicClients 获取频道中的所有客户端
 // GetTopicClients gets all clients in a topic
 func (d *MemoryDriver) GetTopicClients(topicID string) ([]string, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	data, ok := d.topicClients.Load(topicID)
 	if !ok {
 		return []string{}, nil
@@ -220,6 +248,9 @@ func (d *MemoryDriver) GetTopicClients(topicID string) ([]string, error) {
 // GetClientTopics 获取客户端订阅的所有频道
 // GetClientTopics gets all topics subscribed by a client
 func (d *MemoryDriver) GetClientTopics(clientID string) ([]string, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	data, ok := d.clientTopics.Load(clientID)
 	if !ok {
 		return []string{}, nil
@@ -230,6 +261,9 @@ func (d *MemoryDriver) GetClientTopics(clientID string) ([]string, error) {
 // IsTopicExists 检查频道是否存在
 // IsTopicExists checks if a topic exists
 func (d *MemoryDriver) IsTopicExists(topicID string) (bool, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	_, ok := d.topicClients.Load(topicID)
 	return ok, nil
 }

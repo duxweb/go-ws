@@ -34,6 +34,10 @@ type RedisDriver struct {
 	// Redis键前缀
 	// Redis key prefix
 	keyPrefix string
+
+	// 锁
+	// Lock
+	lock sync.Mutex
 }
 
 // RedisOptions Redis锁配置选项
@@ -109,6 +113,14 @@ func NewRedisDriver(opts *RedisOptions) (*RedisDriver, error) {
 }
 
 func (d *RedisDriver) Subscribe(topic string, callback func(msg *websocket.Message) error) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	_, ok := d.topics.Load(topic)
+	if ok {
+		return nil
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	message, err := d.subscriber.Subscribe(ctx, topic)
 	if err != nil {
@@ -122,6 +134,9 @@ func (d *RedisDriver) Subscribe(topic string, callback func(msg *websocket.Messa
 }
 
 func (d *RedisDriver) Unsubscribe(topic string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	topicCtxValue, ok := d.topics.Load(topic)
 	if !ok {
 		return nil
@@ -137,6 +152,9 @@ func (d *RedisDriver) Unsubscribe(topic string) error {
 }
 
 func (d *RedisDriver) Publish(msg *websocket.Message) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	payloadData := map[string]any{
 		"message": msg.Message,
 		"data":    msg.Data,
@@ -182,6 +200,9 @@ func (d *RedisDriver) process(messages <-chan *message.Message, callback func(ms
 // CreateTopic 创建主题
 // CreateTopic creates a topic
 func (d *RedisDriver) CreateTopic(topicID string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	ctx := context.Background()
 	exists, _ := d.IsTopicExists(topicID)
 	if !exists {
@@ -193,6 +214,9 @@ func (d *RedisDriver) CreateTopic(topicID string) error {
 // IsTopicExists 检查频道是否存在
 // IsTopicExists checks if a topic exists
 func (d *RedisDriver) IsTopicExists(topicID string) (bool, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	ctx := context.Background()
 	exists, err := d.client.Exists(ctx, d.topicKey(topicID)).Result()
 	if err != nil {
@@ -204,6 +228,9 @@ func (d *RedisDriver) IsTopicExists(topicID string) (bool, error) {
 // AddClientToTopic 将客户端添加到频道
 // AddClientToTopic adds a client to a topic
 func (d *RedisDriver) AddClientToTopic(topicID string, clientID string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	ctx := context.Background()
 
 	if err := d.CreateTopic(topicID); err != nil {
@@ -232,6 +259,9 @@ func (d *RedisDriver) AddClientToTopic(topicID string, clientID string) error {
 // RemoveClientFromTopic 从频道中移除客户端
 // RemoveClientFromTopic removes a client from a topic
 func (d *RedisDriver) RemoveClientFromTopic(topicID string, clientID string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	ctx := context.Background()
 
 	if err := d.client.SRem(ctx, d.topicClientsKey(topicID), clientID).Err(); err != nil {
@@ -262,6 +292,9 @@ func (d *RedisDriver) RemoveClientFromTopic(topicID string, clientID string) err
 // IsTopicClient 检查客户端是否订阅主题
 // IsTopicClient checks if a client is subscribed to a topic
 func (d *RedisDriver) IsTopicClient(topicID string, clientID string) (bool, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	ctx := context.Background()
 	exists, err := d.client.SIsMember(ctx, d.topicClientsKey(topicID), clientID).Result()
 	if err != nil {
@@ -273,6 +306,9 @@ func (d *RedisDriver) IsTopicClient(topicID string, clientID string) (bool, erro
 // GetTopicClients 获取频道中的所有客户端
 // GetTopicClients gets all clients in a topic
 func (d *RedisDriver) GetTopicClients(topicID string) ([]string, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	ctx := context.Background()
 	clients, err := d.client.SMembers(ctx, d.topicClientsKey(topicID)).Result()
 	if err != nil {
@@ -284,6 +320,9 @@ func (d *RedisDriver) GetTopicClients(topicID string) ([]string, error) {
 // GetClientTopics 获取客户端订阅的所有频道
 // GetClientTopics gets all topics subscribed by a client
 func (d *RedisDriver) GetClientTopics(clientID string) ([]string, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	ctx := context.Background()
 	topics, err := d.client.SMembers(ctx, d.clientTopicsKey(clientID)).Result()
 	if err != nil {

@@ -13,15 +13,13 @@ func (s *Service) SubTopic(topic string) error {
 		return err
 	}
 
-	if exists {
-		return nil
-	}
-
 	// 创建主题
 	// Create topic
-	err = s.Driver.CreateTopic(topic)
-	if err != nil {
-		return err
+	if !exists {
+		err = s.Driver.CreateTopic(topic)
+		if err != nil {
+			return err
+		}
 	}
 
 	// 订阅主题

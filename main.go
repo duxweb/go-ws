@@ -106,16 +106,16 @@ func (t *Service) Run() {
 		clientID := cast.ToString(str)
 		slog.Info("Websocket Client Disconnect", slog.String("client", clientID))
 
-		// 移除客户端
-		// Remove client
-		t.RemoveConnClient(session)
-
 		// 发送离线
 		// Send offline event
 		err := t.EventOffline(clientID)
 		if err != nil {
 			slog.Error("Websocket Client Offline", slog.Any("error", err))
 		}
+
+		// 移除客户端
+		// Remove client
+		t.RemoveConnClient(session)
 	})
 
 	// ping 处理

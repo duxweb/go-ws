@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,6 +12,9 @@ import (
 )
 
 func main() {
+	// 添加命令行参数
+	port := flag.Int("port", 8080, "HTTP服务器端口")
+	flag.Parse()
 
 	// 创建一个Provider
 	provider := &websocket.Provider{
@@ -196,7 +200,11 @@ func main() {
 					// 直接使用用户名作为token
 					const token = encodeURIComponent(username);
 
-					ws = new WebSocket('ws://localhost:8080/ws?app=app1&token=' + token);
+					// 使用当前页面的主机和端口
+					const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+					const wsUrl = wsProtocol + '//' + window.location.host + '/ws?app=app1&token=' + token;
+
+					ws = new WebSocket(wsUrl);
 					ws.onopen = function() {
 						log('连接已建立，等待服务器验证...', 'system');
 					};
@@ -338,6 +346,6 @@ func main() {
 	})
 
 	// 启动HTTP服务器
-	fmt.Println("WebSocket服务器运行在 http://localhost:8081")
-	log.Fatal(http.ListenAndServe(":8081", nil))
+	fmt.Printf("WebSocket服务器运行在 http://localhost:%d\n", *port)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), nil))
 }
