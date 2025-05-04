@@ -29,7 +29,6 @@ type RedisDriver struct {
 	subscriber *redisstream.Subscriber
 	// 订阅主题
 	// Subscribed topics
-	// topicID -> context
 	topics sync.Map
 
 	// Redis键前缀
@@ -96,8 +95,6 @@ func NewRedisDriver(opts *RedisOptions) (*RedisDriver, error) {
 		return nil, fmt.Errorf("Redis: %w", err)
 	}
 
-	// 设置默认前缀
-	// Set default prefix
 	prefix := "ws:"
 	if opts.Prefix != "" {
 		prefix = opts.Prefix + ":"
@@ -188,8 +185,6 @@ func (d *RedisDriver) CreateTopic(topicID string) error {
 	ctx := context.Background()
 	exists, _ := d.IsTopicExists(topicID)
 	if !exists {
-		// 只有在主题不存在时才创建
-		// Only create if topic doesn't exist
 		return d.client.Set(ctx, d.topicKey(topicID), 1, 0).Err()
 	}
 	return nil
@@ -211,31 +206,22 @@ func (d *RedisDriver) IsTopicExists(topicID string) (bool, error) {
 func (d *RedisDriver) AddClientToTopic(topicID string, clientID string) error {
 	ctx := context.Background()
 
-	// 创建主题（如果不存在）
-	// Create topic (if not exists)
 	if err := d.CreateTopic(topicID); err != nil {
 		return err
 	}
 
-	// 检查客户端是否已经在主题中
-	// Check if client is already in the topic
 	exists, err := d.IsTopicClient(topicID, clientID)
 	if err != nil {
 		return err
 	}
 	if exists {
-		return nil // 客户端已在频道中，无需再添加
-		// Client is already in the topic, no need to add again
+		return nil
 	}
 
-	// 添加到主题-客户端集合
-	// Add to topic-client set
 	if err := d.client.SAdd(ctx, d.topicClientsKey(topicID), clientID).Err(); err != nil {
 		return err
 	}
 
-	// 添加到客户端-主题集合
-	// Add to client-topic set
 	if err := d.client.SAdd(ctx, d.clientTopicsKey(clientID), topicID).Err(); err != nil {
 		return err
 	}
@@ -248,28 +234,20 @@ func (d *RedisDriver) AddClientToTopic(topicID string, clientID string) error {
 func (d *RedisDriver) RemoveClientFromTopic(topicID string, clientID string) error {
 	ctx := context.Background()
 
-	// 从主题-客户端集合中移除
-	// Remove from topic-client set
 	if err := d.client.SRem(ctx, d.topicClientsKey(topicID), clientID).Err(); err != nil {
 		return err
 	}
 
-	// 从客户端-主题集合中移除
-	// Remove from client-topic set
 	if err := d.client.SRem(ctx, d.clientTopicsKey(clientID), topicID).Err(); err != nil {
 		return err
 	}
 
-	// 检查主题是否还有客户端，如果没有则删除主题
-	// Check if the topic still has clients, if not, delete the topic
 	count, err := d.client.SCard(ctx, d.topicClientsKey(topicID)).Result()
 	if err != nil {
 		return err
 	}
 
 	if count == 0 {
-		// 主题没有客户端了，删除主题
-		// Topic has no clients, delete the topic
 		if err := d.client.Del(ctx, d.topicClientsKey(topicID)).Err(); err != nil {
 			return err
 		}
